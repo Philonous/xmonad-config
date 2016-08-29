@@ -1,46 +1,44 @@
-{-# LANGUAGE NoMonomorphismRestriction, ViewPatterns #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts #-}
 
-import XMonad
-import System.Exit
+module Main where
 
-import Control.Monad
-import Control.Concurrent
-import Control.Arrow (second)
-
-
-import XMonad.Actions.FloatKeys
-
-import XMonad.Hooks.SetWMName
-import XMonad.Hooks.ManageHelpers
-import XMonad.Hooks.ManageDocks
-import XMonad.Hooks.EwmhDesktops
-
-import XMonad.Layout.SimpleFloat
-import XMonad.Layout.NoBorders
-import XMonad.Layout.Tabbed
-import XMonad.Layout.MouseResizableTile
-import XMonad.Util.NamedScratchpad
-
-import Control.Applicative
-
--- import XMonad.Util.EZConfig
-import XMonad.Util.EZConfig
-
-import qualified XMonad.StackSet as W
-import qualified Data.Map        as M
-
-import Data.Maybe
-import Data.Monoid
-
-import qualified System.Posix as Posix
-import System.IO
-import System.Posix.Env(setEnv, unsetEnv)
-import Data.IORef
-import System.Directory
-
-import System.Posix.Types
-
+import           Control.Applicative
+import           Control.Arrow (second)
+import           Control.Concurrent
+import           Control.Monad
+import           Control.Monad.Trans
+import           Data.IORef
+import qualified Data.List as List
+import qualified Data.Map as M
+import           Data.Maybe
+import           Data.Monoid
 import Prelude hiding(log)
+import           System.Directory
+import           System.Exit
+import           System.IO
+import qualified System.Posix as Posix
+import           System.Posix.Env (setEnv, unsetEnv)
+import           System.Posix.Types
+import           XMonad
+import           XMonad.Actions.DynamicWorkspaces
+import           XMonad.Actions.FloatKeys
+import           XMonad.Hooks.EwmhDesktops
+import           XMonad.Hooks.ManageDocks
+import           XMonad.Hooks.ManageHelpers
+import           XMonad.Hooks.SetWMName
+import           XMonad.Layout.IM
+import           XMonad.Layout.MouseResizableTile
+import           XMonad.Layout.NoBorders
+import           XMonad.Layout.PerWorkspace
+import           XMonad.Layout.SimpleFloat
+import           XMonad.Layout.Tabbed
+import           XMonad.Prompt
+import           XMonad.Prompt.Shell
+import qualified XMonad.StackSet as W
+import           XMonad.Util.EZConfig
+import           XMonad.Util.NamedScratchpad
 
 --import Keys
 
@@ -52,30 +50,20 @@ myBorderWidth   = 2
 myModMask       = mod4Mask
 myNumlockMask   = mod2Mask
 
-myWorkspaces    = zipWith (++) (map show $ [1..22]) (( map (": "++)
-                  ["browser"
-                  ,"pidgin"
-                  ,"music"
-                  ,"misc"
-                  ,"emacs"
-                  ,"misc"
-                  ,"download"
-                  ,"misc"
-                  ,"email"
-                  ,"misc"] ) ++ repeat "" )
+myWorkspaces    = show <$> [1..22]
 
 myNormalBorderColor  = "#300080"
 myFocusedBorderColor = "#FF9000"
 
-setVolume v = spawn $ "pactl set-sink-volume 1 -- " ++ v ++"%"
+setVolume v = spawn $ "pactl set-sink-volume 1 " ++ v ++"%"
 
 basicKeys scratchpads log conf =
   [ ("M-S-<Return>",  spawn $ XMonad.terminal conf)
   -- Volume control
  , ("M-<KP_Add>"        , setVolume "+5" )
  , ("M-<KP_Subtract>"   , setVolume "-5" )
- , ("M-S-<KP_Add>"      , setVolume "60" )
- , ("M-S-<KP_Subtract>" , setVolume "30" )
+ , ("M-S-<KP_Add>"      , setVolume "90" )
+ , ("M-S-<KP_Subtract>" , setVolume "40" )
   -- close focused window
   , ("M-S-c", kill)
   -- Rotate through the available layout algorithms
@@ -112,17 +100,31 @@ basicKeys scratchpads log conf =
   -- Quit xmonad
   , ("M-S-q", spawn "xkill")
   -- Restart xmonad
-  , ("M-q" ,broadcastMessage ReleaseResources >> restart "xmonad" True)
+  , ("M-q" , do
+        recompiled <- recompile True
+        when recompiled $ do
+          broadcastMessage ReleaseResources
+          restart "xmonad" True)
   , ("M-S-l", spawn "xscreensaver-command -lock" )
-  , ("M-`", namedScratchpadAction scratchpads "kuake")
-  , ("M-c", namedScratchpadAction scratchpads "canto")
-  , ("M-f", namedScratchpadAction scratchpads "feedreader")
-  , ("M-r", namedScratchpadAction scratchpads "run program")
-  , ("M-a", namedScratchpadAction scratchpads "krusader")
-  , ("M-w", namedScratchpadAction scratchpads "gnome-commander")
-  , ("M-g", namedScratchpadAction scratchpads "ghci")
+  , ("M-`", exclusivePad scratchpads "kuake")
+  , ("M-r", withNamedPad scratchpads "run program" queryScratchpad)
+  , ("M-g", withNamedPad scratchpads "ghci" queryScratchpad)
+  , ("M--", withNamedPad scratchpads "hamster" queryScratchpad)
+  , ("M-=", withNamedPad scratchpads "gtg" queryScratchpad)
+  , ("M-<Insert>", withNamedPad scratchpads "gnumeric" queryScratchpad)
   , ("M-S-`", resetScratchpadWindow scratchpads)
+  , ("M-<Pause>", spawn "hamster stop")
+
+
+
+  , ("M-p", shellPrompt defaultXPConfig)
+--  , ("M-m", return ())
+  , ("C-`", return ())
   ]
+  ++ [ (mask ++ "M-" ++ [key], screenWorkspace scr >>= flip whenJust (windows . action))
+         | (key, scr)  <- zip "ew" [1,0] -- was [0..] *** change to match your screen order ***
+         , (action, mask) <- [ (W.view, "") , (W.shift, "S-")]
+    ]
 
 
 
@@ -148,23 +150,20 @@ programKeys log conf = allProgramsKey conf :
   ]
 allProgramsKey conf = ("M-s a", delayedExecution programs ) where
   programs=
-    [ ( "xfce4-panel"           , 1 ) -- (Program to execute, delay afterwards)
-    , ( "nautilus -n"           , 1 )
-    , ( "pidgin -n"             , 3 )
-    , ( "xchat"                 , 2 )
-    , ( "claws-mail"            , 2 )
-    , ( "emacs"                 , 2 )
-    , ( "firefox"               , 3 )
-    , ( "liferea"               , 5 )
-    , ( "skype"                 , 3 )
-    , ( "clementine"            , 10)
-    , ( "ktorrent"              , 5 )
---    , ( "nicotine"              , 5 )
-    , ( "keepassx"              , 5 )
-    , ( "jdownloader"           , 20)
+    [ ( "xfce4-panel" , 0 ) -- (Program to execute, delay afterwards)
+    , ( "pidgin -n"   , 0 )
+    , ( "hexchat"     , 0 )
+    , ( "firefox"     , 0 )
+    , ( "emacs"       , 0 )
+    , ( "liferea"     , 0 )
+    , ( "clementine"  , 0 )
+    , ( "keepassx"    , 0 )
+    , ( "evolution"   , 0 )
+    , ( "owncloud"    , 0 )
+    , ( "/usr/lib/kdeconnectd", 0)
     ]
   delayProgram :: Int -> String -> X ()
-  delayProgram time prog = spawn $ "sleep " ++ show time ++ "; " ++ prog
+  delayProgram time prog = spawn $ "sleep " ++ show time ++ "; " ++ prog ++ " &"
   delayedExecution :: [(String, Int)] -> X ()
   delayedExecution (unzip -> (progs, delays)) =
     let delay = scanl (+) 0 delays in zipWithM_ delayProgram delay progs
@@ -228,13 +227,13 @@ windowKeys _ conf = M.fromList $
          ]
          (join (liftM2 (,) ) [1/2,1,2])
      ]
+  ++ [ ((modMask conf .|. shiftMask, xK_KP_Begin), withFocused $ keysResizeWindow (myBorderWidth*2,myBorderWidth*2) (1/2, 1/2) )]
   where
     step1 = 32
     step2 = 256
     modifyWindowSize dw dh = modifyWindow
                        (\(W.RationalRect x y w h)
                        ->  W.RationalRect x y (w*dw) (h*dh))
-
 
 --printKeys chan (masks,key) = io . writeChan chan $ concat (maskNames myModMask masks) ++ key
 
@@ -255,10 +254,18 @@ myMouseBindings (XConfig {XMonad.modMask = modMask}) = M.fromList $
     , ((modMask, button3), (\w -> focus w >> mouseResizeWindow w))
     ]
 
-myLayout = --mouseResizableTile{ draggerType = BordersDragger } |||
-           mouseResizableTile ||| -- {draggerType = BordersDragger} |||
-           simpleTabbed
+tabbedTheme = defaultTheme{ activeColor = "#002b36"
+                          , inactiveColor = "#93a1a1"
+                          , urgentColor = "#93a1a1"
+                          , activeTextColor = "#FF9000"
+                          , inactiveTextColor = "#002b36"
+                          , urgentTextColor = "#000000"
+                          }
 
+myLayout = onWorkspace "18" (withIM (1/5) (Role "buddy_list") (Mirror mouseResizableTile{draggerType = BordersDragger}) ) $
+               tabbed shrinkText tabbedTheme |||
+               mouseResizableTile {draggerType = BordersDragger } |||
+               Mirror (mouseResizableTile {draggerType = BordersDragger })
   where
      tiled   = Tall nmaster delta ratio
      nmaster = 1
@@ -288,6 +295,12 @@ centerFloatNames =
   , "<interactive>"
   ]
 
+setFullScreen = do
+    w <- ask
+    Query (lift . withDisplay $ \d -> liftIO $ setWindowBorderWidth d w 0)
+    doFullFloat
+
+
 myManageHook = composeAll . concat  $
                [concat $ uncurry byName <$>
                  [ (doIgnore     , ignoreNames     )
@@ -299,12 +312,18 @@ myManageHook = composeAll . concat  $
                  , liftM2 (&&) isDialog (appName =? "Steam.exe")
                      --> doIgnore
                  , appName =? "dwarffortress" --> doIgnore
+                 , className =? "hl2_linux" --> setFullScreen
+                 , className =? "dota_linux" -->
+                      (do doShift (workspace 19)
+                          setFullScreen)
+
                  ]
                , map (\(cn, ws) -> className =? cn --> doShift (workspace ws) )
                  [ ( "Firefox"    , 1)
                  , ( "Namoroka"   , 1)
-                 , ( "Xchat"      , 2)
-                 , ( "Pidgin"     , 2)
+                 , ( "Xchat"      , 18)
+                 , ( "Hexchat"    , 18)
+                 , ( "Pidgin"     , 18)
                  , ( "Exail.py"   , 3)
                  , ( "Amarok"     , 3)
                  , ( "Clementine" , 3)
@@ -317,12 +336,14 @@ myManageHook = composeAll . concat  $
                  , ( "Wine"       , 8)
                  , ("DwarfFortress", 8)
                  , ( "Claws-mail" , 10)
+                 , ( "Evolution"  , 10)
                  , ( "Kmail"      , 10)
                  , ( "Keepassx"   , 11)
                  , ( "Liferea"    , 12)
                  , ( "Skype"      , 14)
+                 , ( "Steam"      , 19)
                  ]
-               , [title =? "JDownloader" --> doShift (workspace 7)]
+               , [ title =? "JDownloader" --> doShift (workspace 7) ]
                ]
   where workspace n = myWorkspaces !! (n-1)
         byName doX names = (\name -> className =? name --> doX ) <$> names
@@ -335,7 +356,7 @@ myLogHook = ewmhDesktopsLogHook
 -- Send WM_TAKE_FOCUS
 takeTopFocus = withWindowSet $ maybe (setFocusX =<< asks theRoot) takeFocusX . W.peek
 
-atom_WM_TAKE_FOCUS      = getAtom "WM_TAKE_FOCUS"
+-- atom_WM_TAKE_FOCUS      = getAtom "WM_TAKE_FOCUS"
 takeFocusX w = withWindowSet $ \ws -> do
     dpy <- asks display
     wmtakef <- atom_WM_TAKE_FOCUS
@@ -359,22 +380,12 @@ andM :: (Monad f, Functor f) => [f Bool] -> f Bool
 andM [] = return True
 andM (x:xs) = ifM x (andM xs) (return False)
 
-pipeWriter filename chan = do
-  ifM ( andM ([ doesFileExist , (fmap Posix.isNamedPipe . Posix.getFileStatus)]    <*> [filename])) -- file exists and is a named pipe
-    -- then
-    (withFile filename WriteMode $ \pipe -> forever $ do
-      out <- readChan chan
-      hPutStrLn pipe out
-      hFlush pipe)
-    -- else
-    (forever $ readChan chan)
-
 main = do
   -- chan <- newChan
   -- forkIO $ pipeWriter "/home/uart14/.xmonad/pipemon.pipe" chan
   -- forkIO $ osdFun2
-  spawn "amixet set Master 60%"
-  setEnv "SHELL" myShell True -- set Shell to be fish
+  spawn "reset-volume"
+  spawn "keymap"
   xmonad . myConfig $ const (return ())
 
 resetScratchpadWindow confs =
@@ -406,34 +417,30 @@ runProgramKuake = NS { name = "run program"
                      , hook = doCenterFloat
                      }
 
-krusaderKuake = NS { name = "krusader"
-                     , cmd = "krusader"
-                     , query = appName =? "krusader"
-                     , hook = krusaderHook
-                     }
+hamsterKuake = NS { name = "hamster"
+                  , cmd = "zsh -c 'pkill -x hamster; hamster'"
+                  , query = className =? "Hamster"
+                  , hook = kuakeHook
+                  }
 
-gnomeCommanderKuake = NS { name = "gnome-commander"
-                     , cmd = "gnome-commander"
-                     , query = appName =? "gnome-commander"
-                     , hook = krusaderHook
-                     }
+gtgKuake =  NS { name = "gtg"
+               , cmd = "gtg"
+               , query = className =? "Gtg"
+               , hook = kuakeHook
+               }
 
-feedreaderKuake = NS { name = "feedreader"
-                     , cmd = "feedreader"
-                     , query = appName =? "feedreader"
-                     , hook = cantoHook
-                     }
-
-
+gnumericPad = NS  { name = "gnumeric"
+                  , cmd = "gnumeric"
+                  , query = className =? "Gnumeric"
+                  , hook = kuakeHook
+                  }
 
 scratchpads = [ termKuake "kuake" (kuakeShellCmd "SPad" myShell ) kuakeHook
               , termKuake "ghci"  (kuakeShellCmd "ghci" "ghci" ) kuakeHook
-              , termKuake "canto" "canto" cantoHook
-              , termKuake "htop" "htop" cantoHook
-              , feedreaderKuake
               , runProgramKuake
-              , krusaderKuake
-              , gnomeCommanderKuake
+              , hamsterKuake
+              , gtgKuake
+              , gnumericPad
               ]
 
 
@@ -460,3 +467,58 @@ myConfig log = defaultConfig {
         logHook            = myLogHook
     }
 
+
+-------------------------------------------------------------------
+-- helper stuff
+
+scratchpadWorkspaceTag = "NSP"
+
+ensureScratchpadWorkspaceExists s =
+    if null (filter ((== scratchpadWorkspaceTag) . W.tag) (W.workspaces s))
+    then addHiddenWorkspace scratchpadWorkspaceTag
+    else return ()
+
+
+banishScratchpads pads = withWindowSet $ \s -> do
+    let currentWindows = maybe [] W.integrate . W.stack . W.workspace . W.current $ s
+    banished <- forM pads $ \p -> do
+        foundSPs <-  filterM (runQuery (query p)) currentWindows
+        case foundSPs of
+            [] -> return False
+            _ -> do
+                ensureScratchpadWorkspaceExists s
+                windows . appEndo $ mconcat (Endo . W.shiftWin scratchpadWorkspaceTag <$> foundSPs)
+                return True
+    return $ or banished
+
+banishScratchpad pad = withWindowSet $ \s -> do
+    let currentWindows = maybe [] W.integrate . W.stack . W.workspace . W.current $ s
+    foundSPs <-  filterM (runQuery $ query pad) currentWindows
+    case foundSPs of
+        [] -> return False
+        _ -> do
+            ensureScratchpadWorkspaceExists s
+            windows . appEndo $ mconcat (Endo . W.shiftWin scratchpadWorkspaceTag <$> foundSPs)
+            return True
+
+queryScratchpad pad = withWindowSet $ \s -> do
+    banished <- banishScratchpad pad
+    case banished of
+        True -> return False
+        False -> do
+            foundSPs <- filterM (runQuery $ query pad) (W.allWindows s)
+            case null foundSPs of
+                False -> windows . appEndo $ mconcat (Endo . W.shiftWin (W.currentTag s) <$> foundSPs)
+                True -> spawn $ cmd pad
+            return True
+
+exclusivePad pads n = do
+    banished <- banishScratchpads pads
+    case banished of
+        True -> return ()
+        False -> withNamedPad pads n queryScratchpad
+
+
+
+withNamedPad pads n action =
+    forM_ (List.filter ((n ==) . name) pads) action
