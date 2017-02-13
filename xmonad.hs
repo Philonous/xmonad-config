@@ -5,25 +5,27 @@
 module Main where
 
 import           Control.Applicative
-import           Control.Arrow (second)
+import           Control.Arrow                    (second)
 import           Control.Concurrent
 import           Control.Monad
 import           Control.Monad.Trans
 import           Data.IORef
-import qualified Data.List as List
-import qualified Data.Map as M
+import qualified Data.List                        as List
+import qualified Data.Map                         as M
 import           Data.Maybe
 import           Data.Monoid
+import           Data.Word
 import Prelude hiding(log)
 import           System.Directory
 import           System.Exit
 import           System.IO
-import qualified System.Posix as Posix
-import           System.Posix.Env (setEnv, unsetEnv)
+import qualified System.Posix                     as Posix
+import           System.Posix.Env                 (setEnv, unsetEnv)
 import           System.Posix.Types
 import           XMonad
 import           XMonad.Actions.DynamicWorkspaces
 import           XMonad.Actions.FloatKeys
+import           XMonad.Actions.NoBorders
 import           XMonad.Hooks.EwmhDesktops
 import           XMonad.Hooks.ManageDocks
 import           XMonad.Hooks.ManageHelpers
@@ -36,7 +38,7 @@ import           XMonad.Layout.SimpleFloat
 import           XMonad.Layout.Tabbed
 import           XMonad.Prompt
 import           XMonad.Prompt.Shell
-import qualified XMonad.StackSet as W
+import qualified XMonad.StackSet                  as W
 import           XMonad.Util.EZConfig
 import           XMonad.Util.NamedScratchpad
 
@@ -55,7 +57,7 @@ myWorkspaces    = show <$> [1..22]
 myNormalBorderColor  = "#300080"
 myFocusedBorderColor = "#FF9000"
 
-setVolume v = spawn $ "pactl set-sink-volume 1 " ++ v ++"%"
+setVolume v = spawn $ "pactl set-sink-volume $(pactl info | grep \"Default Sink\" | cut -d ':' -f 2) " ++ v ++"%"
 
 basicKeys scratchpads log conf =
   [ ("M-S-<Return>",  spawn $ XMonad.terminal conf)
@@ -92,7 +94,7 @@ basicKeys scratchpads log conf =
   -- Expand the master area
   , ("M-l", sendMessage Expand)
   -- Push window back into tiling
-  , ("M-t", withFocused $ windows . W.sink)
+  , ("M-t", unfullscreenWindow)
   -- Increment the number of windows in the master area
   , ("M-,", sendMessage (IncMasterN 1))
   -- Deincrement the number of windows in the master area
@@ -115,14 +117,18 @@ basicKeys scratchpads log conf =
   , ("M-S-`", resetScratchpadWindow scratchpads)
   , ("M-<Pause>", spawn "hamster stop")
 
+-- keymaps
+  , ("M-<Escape> <Escape>", spawn "setxkbmap -model pc105 -layout de_va -variant en")
+  , ("M-<Escape> r", spawn "setxkbmap -model pc105 -layout ru -variant phonetic")
 
 
-  , ("M-p", shellPrompt defaultXPConfig)
+  , ("M-f", fullscreenWindow)
+  , ("M-b", withFocused toggleBorder)
 --  , ("M-m", return ())
   , ("C-`", return ())
   ]
   ++ [ (mask ++ "M-" ++ [key], screenWorkspace scr >>= flip whenJust (windows . action))
-         | (key, scr)  <- zip "ew" [1,0] -- was [0..] *** change to match your screen order ***
+         | (key, scr)  <- zip "we" [0,1] -- was [0..] *** change to match your screen order ***
          , (action, mask) <- [ (W.view, "") , (W.shift, "S-")]
     ]
 
@@ -254,13 +260,14 @@ myMouseBindings (XConfig {XMonad.modMask = modMask}) = M.fromList $
     , ((modMask, button3), (\w -> focus w >> mouseResizeWindow w))
     ]
 
-tabbedTheme = defaultTheme{ activeColor = "#002b36"
-                          , inactiveColor = "#93a1a1"
-                          , urgentColor = "#93a1a1"
-                          , activeTextColor = "#FF9000"
-                          , inactiveTextColor = "#002b36"
-                          , urgentTextColor = "#000000"
-                          }
+tabbedTheme = def{ activeColor = "#002b36"
+                 , inactiveColor = "#93a1a1"
+                 , urgentColor = "#93a1a1"
+                 , activeTextColor = "#FF9000"
+                 , inactiveTextColor = "#002b36"
+                 , urgentTextColor = "#000000"
+                 , fontName = "xft:Consolas for Powerline FixedD:size=18"
+                 }
 
 myLayout = onWorkspace "18" (withIM (1/5) (Role "buddy_list") (Mirror mouseResizableTile{draggerType = BordersDragger}) ) $
                tabbed shrinkText tabbedTheme |||
@@ -292,8 +299,10 @@ floatNames =
 centerFloatNames =
   [ "Tomboy"
   , "Gnote"
+  , "R_x11"
   , "<interactive>"
   ]
+
 
 setFullScreen = do
     w <- ask
@@ -386,6 +395,7 @@ main = do
   -- forkIO $ osdFun2
   spawn "reset-volume"
   spawn "keymap"
+  spawn "urxvt"
   xmonad . myConfig $ const (return ())
 
 resetScratchpadWindow confs =
@@ -472,6 +482,32 @@ myConfig log = defaultConfig {
 -- helper stuff
 
 scratchpadWorkspaceTag = "NSP"
+
+fullscreenWindow = withFocused $ \w ->
+                   withWindowSet $ \ws ->
+                   withDisplay $ \d -> do
+  let rect = screenRect . W.screenDetail . W.current $ ws
+  float w
+  io $ raiseWindow d w
+  io $ setWindowBorderWidth  d w 0
+  io $ moveResizeWindow d w (rect_x rect) (rect_y rect)
+                            (rect_width rect) (rect_height rect)
+
+
+data BorderWidth = BorderWidth Word32
+                 | DefaultBorderWidth
+-- Set border width to specified value or default
+setBorderWidth w mbBw = do
+  bw <- case mbBw of
+    DefaultBorderWidth -> asks (borderWidth . config)
+    BorderWidth bw' -> return bw'
+  withDisplay $ \d ->
+    io $ setWindowBorderWidth d w bw
+
+unfullscreenWindow = withFocused $ \w ->
+                     withWindowSet $ \ws -> do
+  setBorderWidth w DefaultBorderWidth
+  windows $ W.sink w
 
 ensureScratchpadWorkspaceExists s =
     if null (filter ((== scratchpadWorkspaceTag) . W.tag) (W.workspaces s))
