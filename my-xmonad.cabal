@@ -16,9 +16,9 @@ extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
 executable xmonad
-  main-is:             xmonad.hs
-  -- other-modules:
-  -- other-extensions:
+  hs-source-dirs:      source
+  main-is:             Main.hs
+  other-modules:       Util
   build-depends:       base
                      , directory
                      , mtl
