@@ -47,7 +47,7 @@ import           Util
 --import Keys
 
 myShell = "/bin/zsh"
-myTerminal      = "urxvt -e tmux new"
+myTerminal      = "xterm -e tmux new"
 myTerminal2     = "xterm"
 
 myBorderWidth   = 2
@@ -395,7 +395,7 @@ main = do
   -- forkIO $ osdFun2
   spawn "reset-volume"
   spawn "keymap"
-  spawn "urxvt"
+  spawn "xterm"
   spawn "xfce4-panel -r"
   xmonad . myConfig $ const (return ())
 
@@ -406,7 +406,7 @@ resetScratchpadWindow confs =
     wTrans <- forM sPWindows . runQuery $ hook scratch
     windows . appEndo . mconcat $ wTrans
 
-inTerm name command = "urxvt -name " ++ name ++ " -e " ++ command
+inTerm name command = "xterm -name " ++ name ++ " -e " ++ command
 
 kuakeHook = doRectFloat $ W.RationalRect (1/16) 0 (1-2/16) (1-1/8)
 cantoHook = doRectFloat $ W.RationalRect (1/16) (1/3) (1-2/16) (2/3)
