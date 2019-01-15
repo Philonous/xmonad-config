@@ -59,7 +59,11 @@ myWorkspaces    = show <$> [1..22]
 myNormalBorderColor  = "#300080"
 myFocusedBorderColor = "#FF9000"
 
-setVolume v = spawn $ "pactl set-sink-volume $(pactl info | grep \"Default Sink\" | cut -d ':' -f 2) " ++ v ++"%"
+
+pulseaudioSink = "alsa_output.pci-0000_00_1b.0.analog-stereo"
+-- pulseaudioSink = "$(pactl info | grep \"Default Sink\" | cut -d ':' -f 2)"
+
+setVolume v = spawn $ "pactl set-sink-volume " ++ pulseaudioSink ++ " " ++ v ++"%"
 
 basicKeys scratchpads log conf =
   [ ("M-S-<Return>",  spawn $ XMonad.terminal conf)
@@ -154,6 +158,7 @@ programKeys log conf = allProgramsKey conf :
   , ("c" , "xcalc"     )
   , ("x" , "xfce4-panel -r" )
   , ("X" , "emacs ~/.xmonad/xmonad.hs")
+  , ("o" , "xdotool getwindowfocus mousedown 3")
   ]
 allProgramsKey conf = ("M-s a", delayedExecution programs ) where
   programs=
@@ -467,7 +472,6 @@ gnumericPad = NS { name = "gnumeric"
 scratchpads =
   [ (True, "M-`", termKuake "kuake" (kuakeShellCmd "SPad" myShell) kuakeHook)
   , (False, "M-g", termKuake "ghci" (kuakeShellCmd "ghci" "ghci") kuakeHook)
-  , (False, "M-C-r", termKuake "R" (kuakeShellCmd "R" "R") kuakeHook)
   , (False, "M-r", runProgramKuake)
   , (False, "M--", hamsterKuake)
   , (False, "M-=", gtgKuake)
@@ -476,6 +480,7 @@ scratchpads =
   , (False, "M-C-n", webApp "git.nejla.com")
               -- , (False, "M-C-d", webApp "discordapp.com")
   , (False, "M-C-d", app "discord" "discord")
+  , (False, "M-C-r", app "riot-desktop" "Riot")
   , (False, "M-C-t", app "telegram-desktop" "TelegramDesktop")
   , (False, "M-C-g", chromiumApp "git.nejla.com__Philonous_work_boards" "https://git.nejla.com/Philonous/work/boards")
   , (False, "M-C-k", webApp "kanban.philonous.net")
