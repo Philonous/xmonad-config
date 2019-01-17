@@ -46,7 +46,7 @@ import           Util
 
 --import Keys
 
-myShell = "/bin/zsh"
+myShell = "zsh"
 myTerminal      = "xterm -e tmux new"
 myTerminal2     = "xterm"
 
