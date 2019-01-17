@@ -479,7 +479,7 @@ scratchpads =
   , (False, "M-C-c", webApp "chat.nejla.com")
   , (False, "M-C-n", webApp "git.nejla.com")
               -- , (False, "M-C-d", webApp "discordapp.com")
-  , (False, "M-C-d", app "discord" "discord")
+  , (False, "M-C-d", app "Discord" "discord")
   , (False, "M-C-r", app "riot-desktop" "Riot")
   , (False, "M-C-t", app "telegram-desktop" "TelegramDesktop")
   , (False, "M-C-g", chromiumApp "git.nejla.com__Philonous_work_boards" "https://git.nejla.com/Philonous/work/boards")
