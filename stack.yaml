@@ -10,6 +10,7 @@ nix:
   packages: [
     x11
     xlibs.libXrandr.dev
+    xlibs.libXinerama.dev
     xlibs.libXScrnSaver
     pkgconfig
   ]
