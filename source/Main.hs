@@ -123,7 +123,8 @@ basicKeys scratchpads log conf =
   , ("M-<Scroll_lock>", spawn "sleep 1 && xset dpms force off ")
   , ("M-S-`", resetScratchpadWindow $ third <$> scratchpads)
 -- keymaps
-  , ("M-<Escape> <Escape>", spawn "setxkbmap -model pc105 -layout de_va -variant en")
+  -- , ("M-<Escape> <Escape>", spawn "setxkbmap -model pc105 -layout de_va -variant en")
+  , ("M-<Escape> <Escape>", spawn "systemd-cat -t xkbcomp nix-shell -p xorg.xkbcomp --run \"xkbcomp -dflts /home/phil/config/layouts/philonous.xkb $DISPLAY\" ")
   , ("M-<Escape> r", spawn "setxkbmap -model pc105 -layout ru -variant phonetic")
 
 
@@ -398,10 +399,6 @@ main = do
   -- chan <- newChan
   -- forkIO $ pipeWriter "/home/uart14/.xmonad/pipemon.pipe" chan
   -- forkIO $ osdFun2
-  spawn "reset-volume"
-  spawn "keymap"
-  spawn "xterm"
-  spawn "xfce4-panel -r"
   xmonad . myConfig $ const (return ())
 
 resetScratchpadWindow confs =
