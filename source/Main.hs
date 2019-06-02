@@ -300,6 +300,7 @@ floatNames =
   , "Deskbar-applet"
   , "Plasma-desktop"
   , "Wine"
+  , "Ghc" -- For haskell development
   ]
 
 centerFloatNames =
