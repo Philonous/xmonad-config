@@ -120,6 +120,8 @@ basicKeys scratchpads log conf =
   ) ++
 
   [ ("M-<Pause>", spawn "hamster stop")
+  , ("M--", spawn "/home/phil/bin/stechuhr start nejla")
+  , ("M-=", spawn "/home/phil/bin/stechuhr end")
   , ("M-<Scroll_lock>", spawn "sleep 1 && xset dpms force off ")
   , ("M-S-`", resetScratchpadWindow $ third <$> scratchpads)
 -- keymaps
@@ -471,8 +473,8 @@ scratchpads =
   [ (True, "M-`", termKuake "kuake" (kuakeShellCmd "SPad" myShell) kuakeHook)
   , (False, "M-g", termKuake "ghci" (kuakeShellCmd "ghci" "ghci") kuakeHook)
   , (False, "M-r", runProgramKuake)
-  , (False, "M--", hamsterKuake)
-  , (False, "M-=", gtgKuake)
+  -- , (False, "M--", hamsterKuake)
+  -- , (False, "M-=", gtgKuake)
   , (False, "M-<Insert>", gnumericPad)
   , (False, "M-C-c", webApp "chat.nejla.com")
   , (False, "M-C-n", webApp "git.nejla.com")
