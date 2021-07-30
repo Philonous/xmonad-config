@@ -4,6 +4,12 @@ set -e
 
 BIN=${1:-xmonad}
 
-stack install --local-bin-path "$PWD"
-
-[[ -f $BIN ]] || ln -s xmonad $BIN
+# xmonad likes to rebuild itself at inappropriate moments. Disable building
+# unless we actually want it.
+if [[ "$2" == "yes" ]]; then
+  shift
+  stack install --ghc-options -j --local-bin-path "$PWD"
+  [[ -f $BIN ]] || ln -s xmonad "$BIN"
+else
+  echo "Run like: $0 yes"
+fi
