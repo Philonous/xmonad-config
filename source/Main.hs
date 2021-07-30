@@ -65,9 +65,12 @@ pulseaudioSink = "alsa_output.pci-0000_00_1b.0.analog-stereo"
 
 setVolume v = spawn $ "pactl set-sink-volume " ++ pulseaudioSink ++ " " ++ v ++"%"
 
+toggleMute = spawn "pactl set-sink-mute" ++ pulseaudioSink ++ " toggle"
+
 basicKeys scratchpads log conf =
   [ ("M-S-<Return>",  spawn $ XMonad.terminal conf)
   -- Volume control
+ , ("XF86AudioMute", toggleMute)
  , ("M-<KP_Add>"        , setVolume "+5" )
  , ("M-<KP_Subtract>"   , setVolume "-5" )
  , ("M-S-<KP_Add>"      , setVolume "90" )
