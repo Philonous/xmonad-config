@@ -126,20 +126,23 @@ basicKeys scratchpads log conf =
   , ("M-S-`", resetScratchpadWindow $ third <$> scratchpads)
 -- keymaps
   -- , ("M-<Escape> <Escape>", spawn "setxkbmap -model pc105 -layout de_va -variant en")
-  , ("M-<Escape> <Escape>", spawn "systemd-cat -t xkbcomp nix-shell -p xorg.xkbcomp --run \"xkbcomp -dflts /home/phil/config/layouts/philonous.xkb $DISPLAY\" ")
+  , ("M-<Escape> <Escape>", spawn "systemd-cat -t xkbcomp nix-shell -p xorg.xkbcomp --run \"xkbcomp -dflts /home/phil/config/xkb/layouts/philonous.xkb $DISPLAY\"")
   , ("M-<Escape> r", spawn "setxkbmap -model pc105 -layout ru -variant phonetic")
-
 
   , ("M-f", fullscreenWindow)
   , ("M-b", withFocused toggleBorder)
 --  , ("M-m", return ())
   , ("C-`", return ())
-  ]
-  ++ [ (mask ++ "M-" ++ [key], screenWorkspace scr >>= flip whenJust (windows . action))
+  ] ++ [ (mask ++ "M-" ++ [key], screenWorkspace scr >>= flip whenJust (windows . action))
          | (key, scr)  <- zip "we" [0,1] -- was [0..] *** change to match your screen order ***
          , (action, mask) <- [ (W.view, "") , (W.shift, "S-")]
     ]
 
+
+languageKeys log conf = M.fromList
+  [ ((modMask conf, xK_F24), spawn "systemd-cat -t xkbcomp nix-shell -p xorg.xkbcomp --run \"xkbcomp -dflts /home/phil/config/xkb/layouts/philonous.xkb $DISPLAY\"")
+  , ((modMask conf, xK_F23), spawn "setxkbmap -model pc105 -layout ru -variant phonetic")
+  ]
 
 
 moveToSide :: Side -> X ()
@@ -258,7 +261,7 @@ programKeys' = simpleMap . programKeys
 basicKeys' scratchpad = simpleMap . basicKeys scratchpads
 
 myKeys scratchpads log conf = foldr M.union M.empty $
-              [programKeys', basicKeys' scratchpads, workspaceKeys, windowKeys]
+              [programKeys', basicKeys' scratchpads, workspaceKeys, windowKeys, languageKeys]
                 <*> [log]
                 <*> [conf]
 
@@ -274,7 +277,9 @@ tabbedTheme = def{ activeColor = "#002b36"
                  , activeTextColor = "#FF9000"
                  , inactiveTextColor = "#002b36"
                  , urgentTextColor = "#000000"
-                 , fontName = "xft:Consolas for Powerline FixedD:size=18"
+                 , fontName = "xft:Inconsolata:size=14"
+                 , decoWidth = decoWidth def * 2
+                 , decoHeight = decoHeight def * 3 `div` 2
                  }
 
 myLayout = onWorkspace "18" (withIM (1/5) (Role "buddy_list") (Mirror mouseResizableTile{draggerType = BordersDragger}) ) $
@@ -425,7 +430,7 @@ termKuake name command hook = NS { name  = name
 
 chromiumApp name url = NS { name = name
                           , cmd = "chromium --app="++url
-                          , query = and' [ className =? "Chromium"
+                          , query = and' [ className =? "Chromium-browser"
                                          , appName =? name
                                          ]
                           , hook = kuakeHook
@@ -476,7 +481,7 @@ scratchpads =
   -- , (False, "M--", hamsterKuake)
   -- , (False, "M-=", gtgKuake)
   , (False, "M-<Insert>", gnumericPad)
-  , (False, "M-C-c", webApp "chat.nejla.com")
+  , (False, "M-C-c", app "element-desktop" "Element")
   , (False, "M-C-n", webApp "git.nejla.com")
               -- , (False, "M-C-d", webApp "discordapp.com")
   , (False, "M-C-d", app "Discord" "discord")
